@@ -2,22 +2,13 @@
 #include <LoRa.h>
 
 // Konfigurasi pin LoRa
-const int csPin = 5;     // Pin Chip Select 34
-const int resetPin = 14; // Pin Reset 
+const int csPin = 5;     // Pin Chip Select
+const int resetPin = 14; // Pin Reset
 const int irqPin = 2;    // Pin Interrupt
 
 // Alamat LoRa slave
 const uint8_t masterAddress = 0x10;
-const char *slaveMac = "CO-1111";
-/*
-Serial Number Mac
-OX = Oksigen SUDAH
-NO = Nitorus Oxide
-CO = Carbondioxide SUDAH
-NG = Nitrogen  SUDAH
-KP = Kompressor 
-VK = Vakum SUDAH
-*/
+const char *slaveMac = "VK-1111";
 
 // Fungsi untuk menghasilkan nilai float acak dalam rentang tertentu
 float randomFloat(float minVal, float maxVal)
@@ -28,13 +19,13 @@ float randomFloat(float minVal, float maxVal)
 // Fungsi untuk menghitung status berdasarkan nilai yang diterima
 String perhitunganStatus(float value)
 {
-  if (value < 4.00)
-  {
-    return "low";
-  }
-  else if (value > 8.00)
+  if (value > -300.00)
   {
     return "high";
+  }
+  else if (value < -700.00)
+  {
+    return "low";
   }
   else
   {
@@ -45,8 +36,8 @@ String perhitunganStatus(float value)
 void setup()
 {
   Serial.begin(115200);
-  
-        Serial.println(slaveMac);
+  while (!Serial)
+    ;
 
   // Inisialisasi LoRa
   LoRa.setPins(csPin, resetPin, irqPin);
@@ -84,35 +75,23 @@ void loop()
       // Jika MAC address cocok, kirim data kembali ke master
       if (receivedMac == slaveMac)
       {
-        // Menghasilkan 3 nilai float acak antara 2.00 dan 9.00
-        float value1 = randomFloat(2.00, 9.00);
-        float value2 = randomFloat(2.00, 9.00);
-        float value3 = randomFloat(2.00, 9.00);
+        // Menghasilkan nilai float acak antara -200 dan -800
+        float value = randomFloat(-800.00, -200.00);
 
-        String status1 = perhitunganStatus(value1);
-        String status2 = perhitunganStatus(value2);
-        String status3 = perhitunganStatus(value3);
+        String status = perhitunganStatus(value);
 
-        // Mengirim nilai-nilai acak ke master
+        // Mengirim nilai acak ke master
         LoRa.beginPacket();
         LoRa.write(masterAddress);
-        LoRa.print(", ");
         LoRa.print(slaveMac);
         LoRa.print(", ");
-        LoRa.print(value1, 2);
-        LoRa.print(", ");
-        LoRa.print(value2, 2);
-        LoRa.print(", ");
-        LoRa.print(value3, 2);
+        LoRa.print(value, 2);
         LoRa.print("#");
         LoRa.endPacket();
-        Serial.println(slaveMac);
-        Serial.print("Nilai 1: ");
-        Serial.println(value1, 2);
-        Serial.print("Nilai 2: ");
-        Serial.println(value2, 2);
-        Serial.print("Nilai 3: ");
-        Serial.println(value3, 2);
+        Serial.print("Nilai: ");
+        Serial.print(value, 2);
+        Serial.print(" mmHg, Status: ");
+        Serial.println(status);
       }
     }
   }

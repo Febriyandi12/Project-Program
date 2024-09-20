@@ -2,20 +2,20 @@
 #include <LoRa.h>
 
 // Konfigurasi pin LoRa
-const int csPin = 5;     // Pin Chip Select 34
-const int resetPin = 14; // Pin Reset 
+const int csPin = 5;     // Pin Chip Select
+const int resetPin = 14; // Pin Reset
 const int irqPin = 2;    // Pin Interrupt
 
 // Alamat LoRa slave
 const uint8_t masterAddress = 0x10;
-const char *slaveMac = "CO-1111";
+const char *slaveMac = "KP-1111";
 /*
 Serial Number Mac
 OX = Oksigen SUDAH
 NO = Nitorus Oxide
 CO = Carbondioxide SUDAH
 NG = Nitrogen  SUDAH
-KP = Kompressor 
+KP = Kompressor
 VK = Vakum SUDAH
 */
 
@@ -45,8 +45,8 @@ String perhitunganStatus(float value)
 void setup()
 {
   Serial.begin(115200);
-  
-        Serial.println(slaveMac);
+  while (!Serial)
+    ;
 
   // Inisialisasi LoRa
   LoRa.setPins(csPin, resetPin, irqPin);
@@ -100,17 +100,12 @@ void loop()
         LoRa.print(slaveMac);
         LoRa.print(", ");
         LoRa.print(value1, 2);
-        LoRa.print(", ");
-        LoRa.print(value2, 2);
-        LoRa.print(", ");
-        LoRa.print(value3, 2);
+        // LoRa.print(", ");
+        // LoRa.print(value2, 2);
+        // LoRa.print(", ");
+        // LoRa.print(value3, 2);
         LoRa.print("#");
         LoRa.endPacket();
-        Serial.println(slaveMac);
-        Serial.print("Nilai 1: ");
-        Serial.println(value1, 2);
-        Serial.print("Nilai 2: ");
-        Serial.println(value2, 2);
         Serial.print("Nilai 3: ");
         Serial.println(value3, 2);
       }

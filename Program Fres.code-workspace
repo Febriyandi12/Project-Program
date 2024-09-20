@@ -1,0 +1,37 @@
+{
+  "folders": [
+    {
+      "name": "Alarm 1",
+      "path": "Alarm 1"
+    },
+    {
+      "name": "Alarm 2",
+      "path": "Alarm 2"
+    },
+    {
+      "name": "Transmiter",
+      "path": "Transmiter"
+    },
+    {
+      "name": "CENTRAL VAKUM",
+      "path": "CENTRAL VAKUM"
+    },
+    {
+      "name": "CENTRAL KOMPRESSOR",
+      "path": "CENTRAL KOMPRESSOR"
+    },
+    {
+      "name": "CENTRAL Carbondioxide",
+      "path": "CENTRAL Carbondioxide"
+    },
+    {
+      "name": "SDcard",
+      "path": "SDcard"
+    }
+  ],
+  "settings": {
+    "files.associations": {
+      "string_view": "cpp"
+    }
+  }
+}
