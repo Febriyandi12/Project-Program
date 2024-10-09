@@ -2,9 +2,9 @@
 #include <LoRa.h>
 
 // Konfigurasi pin LoRa
-const int csPin = 5;     // Pin Chip Select 34
-const int resetPin = 14; // Pin Reset 
-const int irqPin = 2;    // Pin Interrupt
+const int csPin = 4;     // Pin Chip Select 34
+const int resetPin = 15; // Pin Reset 
+const int irqPin = 33;    // Pin Interrupt
 
 // Alamat LoRa slave
 const uint8_t masterAddress = 0x10;

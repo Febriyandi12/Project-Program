@@ -198,7 +198,7 @@ NexText supplyText[6] = {
 NexTouch *nex_listen_list[] = {&bpagelogin, &bpagehome, &settingPage, &settingsn,
                                &bsubmit, &bsimpan, &bback1, &balarmsetting,
                                &bsetAlarm, &blogin, &btutup, &bBar,
-                               &bKPa, &bPSi, &bback, &tserialNumber,&bsave, NULL};
+                               &bKPa, &bPSi, &bback, &tserialNumber, &bsave, NULL};
 
 // Fungsi untuk konversi data ke format JSON
 String convertDataToJson(const String &mac, float supply, float leftBank, float rightBank)
@@ -812,8 +812,8 @@ void taskLoRa()
       uint8_t receivedAddress = LoRa.read();
       if (receivedAddress == masterAddress)
       {
-        
-      dbSerial.println(receivedAddress);
+
+        dbSerial.println(receivedAddress);
         String receivedData = LoRa.readString();
         receivedData.trim();
         processReceivedData(receivedData, currentSlaveIndex);
@@ -866,7 +866,6 @@ void taskNextion()
             nilaiText[displayIndex][1].setText(right);
           }
 
-         
           // Tentukan status berdasarkan nilai sensor
           if (slaveData[j].supply < 3.40)
           {

@@ -3,10 +3,12 @@
 #include <LoRa.h>
 #include <TaskScheduler.h>
 #include <Nextion.h>
+#include <Adafruit_ADS1X15.h>
 
+Adafruit_ADS1115 ads;
 // Konfigurasi pin LoRa
 const int buzzerPin = 5;
-// const int SD_CS = 16;
+const int SD_CS = 16;
 const int LORA_CS = 17;
 const int LORA_RESET = 15; //ok
 const int LORA_IRQ = 33;   //ok
@@ -135,20 +137,20 @@ NexTouch *nex_listen_list[] = {&bpagelogin, &bpagehome, &settingPage, &settingsn
                                &bsetAlarm, &blogin, &btutup, &bBar,
                                &bKPa, &bPSi, &bback, &tserialNumber, NULL};
 
-// void activateSDCard()
-// {
-//   digitalWrite(SD_CS, LOW);    // Aktifkan SD Card
-//   digitalWrite(LORA_CS, HIGH); // Nonaktifkan LoRa
-// }
+void activateSDCard()
+{
+  digitalWrite(SD_CS, LOW);    // Aktifkan SD Card
+  digitalWrite(LORA_CS, HIGH); // Nonaktifkan LoRa
+}
 
-// void activateLoRa()
-// {
-//   digitalWrite(LORA_CS, LOW);
-//   digitalWrite(SD_CS, HIGH); // Nonaktifkan SD Card     // Aktifkan LoRa
-// }
+void activateLoRa()
+{
+  digitalWrite(LORA_CS, LOW);
+  digitalWrite(SD_CS, HIGH); // Nonaktifkan SD Card     // Aktifkan LoRa
+}
 void setupLoRa()
 {
-  // activateLoRa(); // Nonaktifkan SD Card dan aktifkan LoRa
+  activateLoRa(); 
   LoRa.setPins(LORA_CS, LORA_RESET, LORA_IRQ);
 
   if (LoRa.begin(433E6))
@@ -165,24 +167,25 @@ void setupLoRa()
   }
 }
 
-// void setupSDCard()
-// {
-//   // activateSDCard(); // Aktifkan SD Card
+void setupSDCard()
+{
+  activateSDCard(); 
 
-//   if (SD.begin(SD_CS))
-//   {
-//     if (!SD.exists("/setting"))
-//     {
-//       SD.mkdir("/setting");
-//     }
-//     dbSerial.println("Berhasil menginisialisasi SD Card");
-//   }
-//   else
-//   {
-//     dbSerial.println("Gagal menginisialisasi SD Card");
-//     // indikatorError(1);
-//   }
-// }
+  if (SD.begin(SD_CS))
+  {
+    if (!SD.exists("/setting"))
+    {
+      SD.mkdir("/setting");
+    }
+    dbSerial.println("Berhasil menginisialisasi SD Card");
+  }
+  else
+  {
+    dbSerial.println("Gagal menginisialisasi SD Card");
+    // indikatorError(1);
+  }
+}
+
 // Fungsi untuk menghasilkan nilai float acak dalam rentang tertentu
 float randomFloat(float minVal, float maxVal)
 {
@@ -209,9 +212,7 @@ String perhitunganStatus(float value)
 void setup()
 {
   nexInit();
-  // setupSDCard();
-  // activateLoRa();
-  setupLoRa();
+  setupSDCard();
   pinMode(buzzerPin, OUTPUT);
   digitalWrite(buzzerPin, LOW);
 
@@ -224,6 +225,8 @@ void setup()
 
   randomSeed(analogRead(0));
   Serial.println(slaveMac);
+  activateLoRa();
+  setupLoRa();
 }
 
 void nextionCallback()
@@ -231,50 +234,53 @@ void nextionCallback()
 }
 void loraCallback()
 {
-  int packetSize = LoRa.parsePacket();
-  if (packetSize)
+  if (LoRa.begin(433E6))
   {
-    // Baca alamat dari master
-    String receivedString = "";
-    while (LoRa.available())
+    int packetSize = LoRa.parsePacket();
+    if (packetSize)
     {
-      char c = (char)LoRa.read();
-      receivedString += c;
-    }
-
-    // Memisahkan master address dan MAC address dari paket yang diterima
-    int commaIndex = receivedString.indexOf(',');
-    if (commaIndex != -1)
-    {
-      String receivedAddress = receivedString.substring(0, commaIndex);
-      String receivedMac = receivedString.substring(commaIndex + 2); // Menghilangkan spasi setelah koma
-
-      // Jika MAC address cocok, kirim data kembali ke master
-      if (receivedMac == slaveMac)
+      // Baca alamat dari master
+      String receivedString = "";
+      while (LoRa.available())
       {
-        // Menghasilkan 3 nilai float acak antara 2.00 dan 9.00
-        float value1 = randomFloat(2.00, 9.00);
-        float value2 = randomFloat(2.00, 9.00);
-        float value3 = randomFloat(2.00, 9.00);
+        char c = (char)LoRa.read();
+        receivedString += c;
+      }
 
-        String status1 = perhitunganStatus(value1);
-        String status2 = perhitunganStatus(value2);
-        String status3 = perhitunganStatus(value3);
+      // Memisahkan master address dan MAC address dari paket yang diterima
+      int commaIndex = receivedString.indexOf(',');
+      if (commaIndex != -1)
+      {
+        String receivedAddress = receivedString.substring(0, commaIndex);
+        String receivedMac = receivedString.substring(commaIndex + 2); // Menghilangkan spasi setelah koma
 
-        // Mengirim nilai-nilai acak ke master
-        LoRa.beginPacket();
-        LoRa.write(masterAddress);
-        LoRa.print(slaveMac);
-        LoRa.print(", ");
-        LoRa.print(value1, 2);
-        LoRa.print(", ");
-        LoRa.print(value2, 2);
-        LoRa.print(", ");
-        LoRa.print(value3, 2);
-        LoRa.print("#");
-        LoRa.endPacket();
-        Serial.print("Nilai 3: ");
-        Serial.println(value3, 2);
+        // Jika MAC address cocok, kirim data kembali ke master
+        if (receivedMac == slaveMac)
+        {
+          // Menghasilkan 3 nilai float acak antara 2.00 dan 9.00
+          float value1 = randomFloat(2.00, 9.00);
+          float value2 = randomFloat(2.00, 9.00);
+          float value3 = randomFloat(2.00, 9.00);
+
+          String status1 = perhitunganStatus(value1);
+          String status2 = perhitunganStatus(value2);
+          String status3 = perhitunganStatus(value3);
+
+          // Mengirim nilai-nilai acak ke master
+          LoRa.beginPacket();
+          LoRa.write(masterAddress);
+          LoRa.print(slaveMac);
+          LoRa.print(", ");
+          LoRa.print(value1, 2);
+          LoRa.print(", ");
+          LoRa.print(value2, 2);
+          LoRa.print(", ");
+          LoRa.print(value3, 2);
+          LoRa.print("#");
+          LoRa.endPacket();
+          Serial.print("Nilai 3: ");
+          Serial.println(value3, 2);
+        }
       }
     }
   }

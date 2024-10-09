@@ -27,11 +27,26 @@
     {
       "name": "SDcard",
       "path": "SDcard"
+    },
+    {
+      "name": "OTA_ESP32",
+      "path": "OTA_ESP32"
+    },
+    {
+      "name": "Bot-Telegram",
+      "path": "Bot-Telegram"
     }
   ],
   "settings": {
     "files.associations": {
-      "string_view": "cpp"
+      "string_view": "cpp",
+      "array": "cpp",
+      "deque": "cpp",
+      "string": "cpp",
+      "unordered_map": "cpp",
+      "unordered_set": "cpp",
+      "vector": "cpp",
+      "initializer_list": "cpp"
     }
   }
 }

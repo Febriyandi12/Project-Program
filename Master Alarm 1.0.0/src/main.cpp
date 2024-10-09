@@ -1,4 +1,4 @@
-
+// master
 #include <SPI.h>
 #include <Arduino.h>
 #include <Nextion.h>
@@ -9,19 +9,27 @@
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <otadrive_esp.h>
-
+// #include "RTClib.h"
+// #include <esp_task_wdt.h>
 #define PIN_LORA_CS 33
 #define PIN_LORA_RST 15
 #define PIN_LORA_DIO0 13
-#define LORA_FREQUENCY 450E6
+#define LORA_FREQUENCY 433E6
 
 #define TRIGGER_PIN 4
 #define SD_CS_PIN 32
 
 #define BUZZER_PIN 5
 
-String displaySettings, buttonState, snSlaves, adminPassword, userPassword, sensorSettings;
-char previousSupply[6][10], previousLeft[6][10], previousRight[6][10];
+String displaySettings;
+String buttonState;
+String snSlaves;
+String adminPassword;
+String userPassword;
+String sensorSettings;
+char previousSupply[6][10]; // Buffer untuk menyimpan nilai supply yang terakhir dikirim
+char previousLeft[6][10];   // Buffer untuk menyimpan nilai left yang terakhir dikirim
+char previousRight[6][10];  // Buffer untuk menyimpan nilai right yang terakhir dikirim
 
 bool wifimanager_nonblocking = true;
 
@@ -34,7 +42,14 @@ WiFiManager wifimanager;
 WiFiManagerParameter custom_field;
 
 const uint8_t masterAddress = 0x10;
-const char *slaveMacs[] = {"OX", "NO", "CO", "KP", "VK", "NG"};
+const char *slaveMacs[] = {
+    "OX", // Oksigen
+    "NO", // Nitrous Oxide
+    "CO", // Carbon Dioxide
+    "KP", // Kompressor
+    "VK", // Vakum
+    "NG"  // Nitrogen
+};
 
 int numSlaves = sizeof(slaveMacs) / sizeof(slaveMacs[0]);
 
@@ -53,6 +68,7 @@ Scheduler runner;
 void taskLoRa();
 void taskNextion();
 void taskMQTT();
+// void t4Callback();
 
 Task t1(560, TASK_FOREVER, &taskLoRa);
 Task t2(1500, TASK_FOREVER, &taskNextion);
@@ -67,57 +83,61 @@ int unitState;
 int currentState = 0;
 int statebutton;
 
-const char *satuan = "Bar", *satuan1 = "mmHg", *satuan2 = "KPa", *satuan3 = "Psi";
+const char *satuan = "Bar";
+const char *satuan1 = "mmHg";
+const char *satuan2 = "KPa";
+const char *satuan3 = "Psi";
 
+const char *status[] = {"Normal", "Low", "Over"};
 const char *gas[] = {"Oxygen", "Nitrous Oxide", "Carbondioxide", "Kompressor", "Vakum", "Nitrogen"};
 
-NexButton bpagelogin = NexButton(0, 19, "bpagelogin");
-NexButton bpagehome = NexButton(1, 15, "bpagehome");
-NexButton bsubmit = NexButton(1, 17, "bsubmit");
-NexButton balarmsetting = NexButton(1, 16, "balarmsetting");
-NexButton blogin = NexButton(2, 2, "blogin");
-NexButton btutup = NexButton(2, 3, "btutup");
-NexButton bsubmit1 = NexButton(3, 19, "bsubmit");
-NexButton bsimpan = NexButton(4, 15, "bsimpan");
-NexButton bback = NexButton(4, 16, "btutup");
+NexButton bpagelogin = NexButton(0, 19, "bpagelogin");       // sudah
+NexButton bpagehome = NexButton(1, 15, "bpagehome");         // sudah
+NexButton bsubmit = NexButton(1, 17, "bsubmit");             // sudah
+NexButton balarmsetting = NexButton(1, 16, "balarmsetting"); // sudah
+NexButton blogin = NexButton(2, 2, "blogin");                // sudah
+NexButton btutup = NexButton(2, 3, "btutup");                // sudah
+NexButton bsubmit1 = NexButton(3, 19, "bsubmit");            // sudah
+NexButton bsimpan = NexButton(4, 15, "bsimpan");             // sudah
+NexButton bback = NexButton(4, 16, "btutup");                // sudah
 
-NexDSButton bBar = NexDSButton(1, 18, "bBar");
-NexDSButton bKPa = NexDSButton(1, 19, "bKPa");
-NexDSButton bPSi = NexDSButton(1, 20, "bPSi");
+NexDSButton bBar = NexDSButton(1, 18, "bBar"); // sudah
+NexDSButton bKPa = NexDSButton(1, 19, "bKPa"); // sudah
+NexDSButton bPSi = NexDSButton(1, 20, "bPSi"); // sudah
 
-NexPage home = NexPage(0, 0, "mainmenu");
-NexPage settingPage = NexPage(1, 0, "menusetting");
-NexPage loginpage = NexPage(2, 0, "loginpage");
-NexPage alarmpage = NexPage(3, 0, "settingalarm");
-NexPage settingsn = NexPage(4, 0, "settingsn");
-NexPage setupPassword = NexPage(5, 0, "setupPassword");
+NexPage home = NexPage(0, 0, "mainmenu");               // sudah
+NexPage settingPage = NexPage(1, 0, "menusetting");     // sudah
+NexPage loginpage = NexPage(2, 0, "loginpage");         // sudah
+NexPage alarmpage = NexPage(3, 0, "settingalarm");      // sudah
+NexPage settingsn = NexPage(4, 0, "settingsn");         // sudah
+NexPage setupPassword = NexPage(5, 0, "setupPassword"); // sudah
 
-NexText password = NexText(2, 1, "tpassword");
+NexText password = NexText(2, 1, "tpassword"); // sudah
 
-NexNumber setpassworduser = NexNumber(1, 13, "npassworduser");
-NexNumber setpasswordadmin = NexNumber(4, 7, "npasswordadmin");
-NexNumber setAdmin = NexNumber(5, 3, "npasswordAdmin");
-NexNumber setUser = NexNumber(5, 4, "npasswordUser");
+NexNumber setpassworduser = NexNumber(1, 13, "npassworduser");  // sudah
+NexNumber setpasswordadmin = NexNumber(4, 7, "npasswordadmin"); // sudah
+NexNumber setAdmin = NexNumber(5, 3, "npasswordAdmin");         // sudah
+NexNumber setUser = NexNumber(5, 4, "npasswordUser");           // sudah
 
-NexButton bsave = NexButton(5, 5, "bsave");
+NexButton bsave = NexButton(5, 5, "bsave"); // sudah
 
-NexNumber inputnumber1 = NexNumber(1, 1, "n0");
-NexNumber inputnumber2 = NexNumber(1, 2, "n1");
-NexNumber inputnumber3 = NexNumber(1, 3, "n2");
-NexNumber inputnumber4 = NexNumber(1, 4, "n3");
-NexNumber inputnumber5 = NexNumber(1, 5, "n4");
-NexNumber inputnumber6 = NexNumber(1, 6, "n5");
+NexNumber inputnumber1 = NexNumber(1, 1, "n0"); // sudah
+NexNumber inputnumber2 = NexNumber(1, 2, "n1"); // sudah
+NexNumber inputnumber3 = NexNumber(1, 3, "n2"); // sudah
+NexNumber inputnumber4 = NexNumber(1, 4, "n3"); // sudah
+NexNumber inputnumber5 = NexNumber(1, 5, "n4"); // sudah
+NexNumber inputnumber6 = NexNumber(1, 6, "n5"); // sudah
 
 NexText warning = NexText(2, 1, "twarning");
 NexText tloginAdmin = NexText(4, 17, "tloginAdmin");
 NexText tloginUser = NexText(1, 23, "tloginUser");
 
-NexText tslave1 = NexText(4, 1, "tslave1");
-NexText tslave2 = NexText(4, 2, "tslave2");
-NexText tslave3 = NexText(4, 3, "tslave3");
-NexText tslave4 = NexText(4, 4, "tslave4");
-NexText tslave5 = NexText(4, 5, "tslave5");
-NexText tslave6 = NexText(4, 6, "tslave6");
+NexText tslave1 = NexText(4, 1, "tslave1"); // sudah
+NexText tslave2 = NexText(4, 2, "tslave2"); // sudah
+NexText tslave3 = NexText(4, 3, "tslave3"); // sudah
+NexText tslave4 = NexText(4, 4, "tslave4"); // sudah
+NexText tslave5 = NexText(4, 5, "tslave5"); // sudah
+NexText tslave6 = NexText(4, 6, "tslave6"); // sudah
 
 NexText oksigenMin = NexText(3, 1, "oksigenMin");
 NexText oksigenMax = NexText(3, 2, "oksigenMax");
@@ -133,7 +153,6 @@ NexText kompressorMax = NexText(3, 20, "nitrogenMin");
 NexText vakumMax = NexText(3, 21, "nitrogenMax");
 
 NexText tserialNumber = NexText(1, 20, "tserialnumber");
-
 NexText tStatus[6] = {
     NexText(0, 63, "tStatus0"),
     NexText(0, 64, "tStatus1"),
@@ -141,7 +160,6 @@ NexText tStatus[6] = {
     NexText(0, 66, "tStatus3"),
     NexText(0, 67, "tStatus4"),
     NexText(0, 68, "tStatus5")};
-
 NexText tKet[6] = {
     NexText(0, 52, "tKet0"),
     NexText(0, 52, "tKet1"),
@@ -263,7 +281,9 @@ void updateGasUI(int currentIndex, byte gasType)
 
   nilaiText[currentIndex][0].Set_background_color_bco(backgroundColor);
   nilaiText[currentIndex][1].Set_background_color_bco(backgroundColor);
+
   supplyText[currentIndex].Set_background_color_bco(backgroundColor);
+
   satuanText[currentIndex][0].Set_background_color_bco(backgroundColor);
   satuanText[currentIndex][1].Set_background_color_bco(backgroundColor);
   satuanText[currentIndex][2].Set_background_color_bco(backgroundColor);
@@ -1040,141 +1060,112 @@ void taskLoRa()
 }
 
 bool errorSent[6] = {false, false, false, false, false, false}; // Status untuk melacak apakah error sudah dikirim
+
 void taskNextion()
 {
-  static unsigned long lastUpdate = 0;
-
-  // Static arrays to hold the previous values
-  static float randomSupply[6] = {5.00, 5.00, 5.00, 5.00, -510.0, 5.00};
-  static float randomLeft[6] = {5.00, 5.00, 5.00, 5.00, -500.0, 5.00};
-  static float randomRight[6] = {5.00, 5.00, 5.00, 5.00, -520.0, 5.00};
-
-  if (millis() - lastUpdate >= 5000)
+  byte numberValue[6];
+  int index = 0;
+  for (int i = 0; i < 6; i++)
   {
-    lastUpdate = millis();
-    byte numberValue[6];
-    int index = 0;
-
-    // Update random values based on previous values with a small change
-    for (int i = 0; i < 6; i++)
+    int commaIndex = displaySettings.indexOf(',', index);
+    if (commaIndex == -1 && i < 5)
     {
-      if (i == 4) // Untuk vakum
-      {
-        randomSupply[i] += (static_cast<float>(rand()) / RAND_MAX) * 10 - 5; // ±5 dari nilai sebelumnya
-        randomSupply[i] = constrain(randomSupply[i], -520, -500);            // Batasi nilai
-      }
-      else
-      {
-        randomSupply[i] += (static_cast<float>(rand()) / RAND_MAX) * 0.06 - 0.03; // ±0.03 dari nilai sebelumnya
-        randomSupply[i] = constrain(randomSupply[i], 5.00, 5.93);                 // Batasi nilai
-
-        randomLeft[i] += (static_cast<float>(rand()) / RAND_MAX) * 0.06 - 0.03;
-        randomLeft[i] = constrain(randomLeft[i], 5.00, 6.06);
-
-        randomRight[i] += (static_cast<float>(rand()) / RAND_MAX) * 0.08 - 0.04;
-        randomRight[i] = constrain(randomRight[i], 5.00, 5.58);
-      }
+      dbSerial.println("Error: Format display_settings.txt tidak valid");
+      return;
     }
+    numberValue[i] = displaySettings.substring(index, commaIndex).toInt();
+    index = commaIndex + 1;
+  }
 
-    for (int i = 0; i < 6; i++)
+  const char *macPrefixes[] = {"OX", "NO", "CO", "KP", "VK", "NG"};
+  int displayIndex = 0;
+  String selectedUnit = buttonState.substring(0, buttonState.indexOf(','));
+
+  for (int i = 0; i < 6; i++)
+  {
+    if (numberValue[i] >= 1 && numberValue[i] <= 6)
     {
-      int commaIndex = displaySettings.indexOf(',', index);
-      if (commaIndex == -1 && i < 5)
+      int gasType = numberValue[i] - 1;
+      const char *macPrefix = macPrefixes[gasType];
+      bool found = false;
+
+      for (int j = 0; j < numSlaves; j++)
       {
-        dbSerial.println("Error: Format display_settings.txt tidak valid");
-        return;
-      }
-      numberValue[i] = displaySettings.substring(index, commaIndex).toInt();
-      index = commaIndex + 1;
-    }
-
-    const char *macPrefixes[] = {"OX", "NO", "CO", "KP", "VK", "NG"};
-    int displayIndex = 0;
-    String selectedUnit = buttonState.substring(0, buttonState.indexOf(','));
-
-    for (int i = 0; i < 6; i++)
-    {
-      if (numberValue[i] >= 1 && numberValue[i] <= 6)
-      {
-        int gasType = numberValue[i] - 1;
-        const char *macPrefix = macPrefixes[gasType];
-        bool found = false;
-
-        for (int j = 0; j < numSlaves; j++)
+        if (slaveData[j].mac.startsWith(macPrefix))
         {
-          if (slaveData[j].mac.startsWith(macPrefix))
-          {
-            float supplyValue = slaveData[j].supply;
+          float supplyValue = slaveData[j].supply;
 
-            // Jika supply value adalah 0 (slave tidak terhubung)
-            if (randomSupply[gasType] == 0.00)
+          // Jika supply value adalah 0 (slave tidak terhubung)
+          if (supplyValue == 0.00)
+          {
+            if (!errorSent[displayIndex])
             {
-              if (!errorSent[displayIndex])
-              {
-                supplyText[displayIndex].setText("Err");
-                nilaiText[displayIndex][0].setText("Err");
-                nilaiText[displayIndex][1].setText("Err");
-                tKet[displayIndex].Set_background_image_pic(8); // Low
-                tStatus[displayIndex].setText("Err");
-                dbSerial.println("Error: Slave " + String(j) + " tidak terhubung");
-                errorSent[displayIndex] = true; // Tandai error sudah dikirim
-              }
+              // Hanya kirim "Err" sekali jika belum pernah dikirim sebelumnya
+              supplyText[displayIndex].setText("Err");
+              nilaiText[displayIndex][0].setText("Err");
+              nilaiText[displayIndex][1].setText("Err");
+              tKet[displayIndex].Set_background_image_pic(8); // Low
+              tStatus[displayIndex].setText("Err");
+              dbSerial.println("Error: Slave " + String(j) + " tidak terhubung");
+              errorSent[displayIndex] = true; // Tandai error sudah dikirim
+            }
+          }
+          else
+          {
+            // Reset status error jika suplai kembali normal
+            if (errorSent[displayIndex])
+            {
+              errorSent[displayIndex] = false;
+            }
+
+            // Mengolah data untuk supply, left bank, dan right bank
+            char supply[10], left[10], right[10];
+            float conversionFactor = (selectedUnit == "3") ? 14.5038 : (selectedUnit == "2") ? 100
+                                                                                             : 1;
+            float precision = (selectedUnit == "1") ? 2 : 0;
+
+            snprintf(supply, sizeof(supply), "%.*f", (int)precision, supplyValue * conversionFactor);
+            supplyText[displayIndex].setText(supply);
+
+            if (strcmp(macPrefix, "KP") != 0 && strcmp(macPrefix, "VK") != 0)
+            {
+              snprintf(left, sizeof(left), "%.*f", (int)precision, slaveData[j].leftBank * conversionFactor);
+              snprintf(right, sizeof(right), "%.*f", (int)precision, slaveData[j].rightBank * conversionFactor);
+              nilaiText[displayIndex][0].setText(left);
+              nilaiText[displayIndex][1].setText(right);
+            }
+
+            // Ambil nilai min dan max dari sensorSettings
+            float minVal = 0.0, maxVal = 0.0;
+            int sensorIndex = gasType * 4;
+            minVal = sensorSettings.substring(sensorIndex, sensorSettings.indexOf(',', sensorIndex)).toFloat() * conversionFactor;
+            sensorIndex = sensorSettings.indexOf(',', sensorIndex) + 1;
+            maxVal = sensorSettings.substring(sensorIndex, sensorSettings.indexOf(',', sensorIndex)).toFloat() * conversionFactor;
+
+            // Set background image dan status
+            if (supplyValue < minVal)
+            {
+              tKet[displayIndex].Set_background_image_pic(8); // Low
+              tStatus[displayIndex].setText("Low");
+            }
+            else if (supplyValue > maxVal)
+            {
+              tKet[displayIndex].Set_background_image_pic(7); // High
+              tStatus[displayIndex].setText("High");
             }
             else
             {
-              if (errorSent[displayIndex])
-              {
-                errorSent[displayIndex] = false;
-              }
-
-              // Mengolah data untuk supply, left bank, dan right bank
-              char supply[10], left[10], right[10];
-              float conversionFactor = (selectedUnit == "3") ? 14.5038 : (selectedUnit == "2") ? 100 : 1;
-              float precision = (selectedUnit == "1") ? 2 : 0;
-
-              snprintf(supply, sizeof(supply), "%.*f", (int)precision, randomSupply[gasType]);
-              supplyText[displayIndex].setText(supply);
-
-              if (strcmp(macPrefix, "KP") != 0 && strcmp(macPrefix, "VK") != 0)
-              {
-                snprintf(left, sizeof(left), "%.*f", (int)precision, randomLeft[gasType]);
-                snprintf(right, sizeof(right), "%.*f", (int)precision, randomRight[gasType]);
-                nilaiText[displayIndex][0].setText(left);
-                nilaiText[displayIndex][1].setText(right);
-              }
-
-              // Ambil nilai min dan max dari sensorSettings
-              float minVal = 0.0, maxVal = 0.0;
-              int sensorIndex = gasType * 4;
-              minVal = sensorSettings.substring(sensorIndex, sensorSettings.indexOf(',', sensorIndex)).toFloat() * conversionFactor;
-              sensorIndex = sensorSettings.indexOf(',', sensorIndex) + 1;
-              maxVal = sensorSettings.substring(sensorIndex, sensorSettings.indexOf(',', sensorIndex)).toFloat() * conversionFactor;
-
-              // Set background image dan status
-              if (supplyValue < minVal)
-              {
-                tKet[displayIndex].Set_background_image_pic(8); // Low
-                tStatus[displayIndex].setText("Low");
-              }
-              else if (supplyValue > maxVal)
-              {
-                tKet[displayIndex].Set_background_image_pic(7); // High
-                tStatus[displayIndex].setText("High");
-              }
-              else
-              {
-                tKet[displayIndex].Set_background_image_pic(9); // Normal
-                tStatus[displayIndex].setText("Normal");
-              }
+              tKet[displayIndex].Set_background_image_pic(9); // Normal
+              tStatus[displayIndex].setText("Normal");
             }
-
-            found = true;
-            break;
           }
-        }
 
-        displayIndex++;
+          found = true;
+          break;
+        }
       }
+
+      displayIndex++;
     }
   }
 }
@@ -1245,21 +1236,32 @@ void setupNextiontombol()
   bPSi.attachPop(bPSiPopCallback, &bPSi);
 }
 
+// ... kode sebelumnya ...
+
 void checkForFirmwareUpdate()
 {
   if (WiFi.status() == WL_CONNECTED)
   {
-    Serial.println(F("Memeriksa pembaruan firmware..."));
-    if (OTADRIVE.updateFirmware(true).available)
+    Serial.println("Memeriksa pembaruan firmware...");
+
+    updateInfo ui = OTADRIVE.updateFirmware(true);
+    if (ui.available)
     {
-      Serial.println(F("Pembaruan firmware tersedia. Memulai proses pembaruan..."));
+      Serial.println("Pembaruan firmware tersedia. Memulai proses pembaruan...");
+      // Proses pembaruan akan dimulai otomatis oleh OTADRIVE
     }
     else
     {
-      Serial.println(F("Tidak ada pembaruan firmware yang tersedia."));
+      Serial.println("Tidak ada pembaruan firmware yang tersedia.");
     }
   }
+  else
+  {
+    Serial.println("Koneksi WiFi tidak tersedia, tidak bisa memeriksa pembaruan.");
+  }
 }
+
+// ... kode selanjutnya ...
 
 void setup()
 {
@@ -1269,6 +1271,7 @@ void setup()
   OTADRIVE.setInfo("ea7d2d48-f17a-4ac1-82ae-f7b2999ef231", "1.1.5");
 
   // indikatorBuzzer(3);
+
   nexInit();
   clearUnusedDisplays();
   setupNextiontombol();
@@ -1280,17 +1283,17 @@ void setup()
   runner.init();
   runner.addTask(t1);
   runner.addTask(t2);
-  // runner.addTask(t3);
+  runner.addTask(t3);
   t1.enable();
   t2.enable();
-  // t3.enable();
+  t3.enable();
 
   SPI.begin();
 
   activateLoRa();
   setupLoRa();
 
-  // setupwifimanager();
+  setupwifimanager();
 
   client.setServer(mqttServer, mqttPort);
 
@@ -1310,5 +1313,6 @@ void loop()
   checkButton();
   nexLoop(nex_listen_list);
   runner.execute();
+
   wifimanager.process();
 }
